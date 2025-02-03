@@ -10,6 +10,8 @@
 #include <FS.h>
 #include <SPI.h>
 
+bool sdCardPresent = 0;
+
 // Add WiFi Secrets (SECRET_WIFI_SSID / SECRET_WIFI_PASS) in secrets.h
 #include <secrets.h>
 
@@ -54,22 +56,25 @@ void setup()
     // return;
   }
 
-  Serial.print("SD Card Type: ");
-  if(cardType == CARD_MMC){
-    Serial.println("MMC");
-  } else if(cardType == CARD_SD){
-    Serial.println("SDSC");
-  } else if(cardType == CARD_SDHC){
-    Serial.println("SDHC");
-  } else {
-    Serial.println("UNKNOWN");
+  else {
+    sdCardPresent = 1;
+    Serial.print("SD Card Type: ");
+    if(cardType == CARD_MMC){
+      Serial.println("MMC");
+    } else if(cardType == CARD_SD){
+      Serial.println("SDSC");
+    } else if(cardType == CARD_SDHC){
+      Serial.println("SDHC");
+    } else {
+      Serial.println("UNKNOWN");
+    }
+
+    uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+    Serial.printf("SD Card Size: %lluMB\n", cardSize);
+    Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
+    Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));
   }
-
-  uint64_t cardSize = SD.cardSize() / (1024 * 1024);
-  Serial.printf("SD Card Size: %lluMB\n", cardSize);
-  Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
-  Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));
-
+  
   GPSserial.begin(9600, SERIAL_8N1, GPSTX, GPSRX);           //format is baud, mode, UART RX data, UART TX data
   Serial.println("GPS_Echo_ESP32 Starting");
 
@@ -343,7 +348,6 @@ void writeLine(fs::FS &fs){
   if (gps.location.isValid()) {
     char filename[20];
     sprintf(filename, "/%s.csv", currentDate);
-    File file = fs.open(filename, FILE_APPEND);
     char msg[255] = "";
     char lat[12];
     char lon[12];
@@ -359,20 +363,26 @@ void writeLine(fs::FS &fs){
 
 
     sprintf(msg, "%i/%i/%i,%i:%i:%i,%s,%s,%s,%s,%s,%i\n", gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second(), lat, lon, speed, alt, course, gps.satellites.value());
-    // sprintf(msg, "%i/%i/%i,%i:%i:%i,%s,%s,%s,%s,%s,%i",gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second(), lat, lon, speed,alt,course,gps.satellites.value());
+
     Serial.println(msg);
-    if (!file) {
-      Serial.println("Failed to open file for writing");
-      return;
+
+    if (sdCardPresent == 1) {
+      File file = fs.open(filename, FILE_APPEND);
+      if (!file) {
+        Serial.println("Failed to open file for writing");
+        return;
+      }
+      if (file.print(msg)) {
+        Serial.print("File written: ");
+        Serial.println(filename);
+      } else {
+        Serial.println("Write failed");
+      }
+
+      file.close();
     }
-    if (file.print(msg)) {
-      Serial.print("File written: ");
-      Serial.println(filename);
-    } else {
-      Serial.println("Write failed");
-    }
-    file.close();
   }
+  
   else {
     Serial.print("Awaiting Location Details - ");
     Serial.println(gps.satellites.value());
