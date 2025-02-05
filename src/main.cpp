@@ -436,20 +436,25 @@ void showTime() {
 
     tft.loadFont(YEAR_FONT);
 
+    String strHours = (hours < 10) ? "0" + hours : (String)hours;
+    String strOldHours = (oldHours < 10) ? "0" + oldHours : (String)oldHours;
+    String strMin = (min < 10) ? "0" + min : (String)min;
+    String strOldMin = (oldMins < 10) ? "0" + oldMins : (String)oldMins;
+
     if ((oldHours != hours) || (oldMins != min)){
       // One of the parts has changed, blank it out
       tft.setTextColor(bg_color, bg_color);
-      xpos = (tft.width() / 2) - (tft.textWidth((String)oldHours + ":" + oldMins) /2);
+      xpos = (tft.width() / 2) - (tft.textWidth((String)strOldHours + ":" + strOldMin) /2);
       tft.setCursor(xpos, ypos);
-      tft.print((String)oldHours + ":" + oldMins);
+      tft.print((String)strOldHours + ":" + strOldMin);
       oldHours = hours;
       oldMins = min;
     }
 
     tft.setTextColor(fg_color, bg_color);
     // tft.loadFont(YEAR_FONT);
-    xpos = (tft.width() / 2) - (tft.textWidth((String)hours + ":" + min) /2);
+    xpos = (tft.width() / 2) - (tft.textWidth((String)strHours + ":" + strMin) /2);
     tft.setCursor(xpos, ypos);
-    tft.print((String)hours + ":" + min);
+    tft.print((String)strHours + ":" + strMin);
   }
 }
