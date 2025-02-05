@@ -12,10 +12,21 @@
 
 bool sdCardPresent = 0;
 
+// TFT
+// Font attached to this sketch
+#include "NotoSansBold36.h"
+#include "NotoSansBold15.h"
+#define AA_FONT_LARGE NotoSansBold36
+#define AA_FONT_SMALL NotoSansBold15
+
+#include <TFT_eSPI.h>
+
+TFT_eSPI tft = TFT_eSPI();
+
 // Add WiFi Secrets (SECRET_WIFI_SSID / SECRET_WIFI_PASS) in secrets.h
 #include <secrets.h>
 
-
+// GPS Stuff
 #define GPSTX 16              //pin number for TX output from ESP32 - RX into GPS
 #define GPSRX 17              //pin number for RX input into ESP32 - TX from GPS
 #define GPSserial Serial2     //define GPSserial as ESP32 Serial2 
@@ -25,6 +36,8 @@ TinyGPSPlus gps;
 unsigned long last = 0UL;
 unsigned long lastWrite;
 
+int oldSatCount = 32;
+
 // Current Date
 char currentDate[12] = "2000-00-00";
 
@@ -32,11 +45,17 @@ void displayInfo();
 // void testFileIO(fs::FS &fs, const char * path);
 void checkDate();
 void writeLine(fs::FS &fs);
+void showSatellites();
 
 
 void setup()
 {
   Serial.begin(115200);
+
+  tft.begin();
+  tft.setRotation(2);
+  tft.fillScreen(TFT_BLACK);
+
   // WiFi.mode(WIFI_STA);
   // WiFi.begin(SECRET_WIFI_SSID, SECRET_WIFI_PASS);
   // while (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -134,6 +153,7 @@ void loop()
   
   if (now -lastWrite >= 1000) {
     writeLine(SD);
+    showSatellites();
     lastWrite = millis();
   }
 }
@@ -387,5 +407,61 @@ void writeLine(fs::FS &fs){
     Serial.print("Awaiting Location Details - ");
     Serial.println(gps.satellites.value());
     Serial.println("-----");
+  }
+}
+
+void showSatellites() {
+  if ( gps.satellites.isValid() ) {
+
+    int satCount = gps.satellites.value();
+    int xpos;
+    int ypos = 30;
+    if ( oldSatCount != satCount) {
+      uint16_t fg_color = TFT_BLACK;
+      uint16_t bg_color = TFT_BLACK; 
+      if ( satCount >= 4) {
+        fg_color = TFT_GREEN;
+      }
+      else if ( satCount <2) {
+        fg_color = TFT_RED;
+      }
+      else {
+        fg_color = TFT_YELLOW;
+      }
+
+      
+      uint16_t x = tft.width() / 2;  // Position of centre of arc
+      uint16_t y = tft.height() / 2;
+
+      uint8_t radius       = tft.width()/2; // Outer arc radius
+      uint8_t thickness    = 10;     // Thickness
+      uint8_t inner_radius = radius - thickness;        // Calculate inner radius (can be 0 for circle segment)
+
+      // 0 degrees is at 6 o'clock position
+      // Arcs are drawn clockwise from start_angle to end_angle
+      uint16_t start_angle = 60; // Start angle must be in range 0 to 360
+      uint16_t end_angle   = map(satCount, 0, 12, 61, 300); // End angle must be in range 0 to 360
+      
+      tft.setTextColor(TFT_BLACK, TFT_BLACK);
+      tft.loadFont(AA_FONT_SMALL);
+      xpos = (tft.width()/2) - (tft.textWidth((String)"Satellites: " + oldSatCount) / 2);
+      // tft.setTextSize(4);
+      tft.setCursor(xpos, ypos);
+      tft.print("Satellites: ");
+      tft.print(oldSatCount);
+
+      tft.setTextColor(TFT_CYAN, TFT_BLACK);
+      xpos = (tft.width()/2) - (tft.textWidth((String)"Satellites: " + satCount) / 2);
+      // tft.setTextSize(4);
+      tft.setCursor(xpos, ypos);
+      tft.print("Satellites: ");
+      tft.print(satCount);
+
+      bool arc_end = true;           // true = round ends, false = square ends (arc_end parameter can be omitted, ends will then be square)
+
+      tft.drawSmoothArc(x, y, radius, inner_radius, 0, 360, TFT_BLACK, TFT_BLACK, arc_end);
+      tft.drawSmoothArc(x, y, radius, inner_radius, start_angle, end_angle, fg_color, bg_color, arc_end);
+      oldSatCount = satCount;
+    }
   }
 }
